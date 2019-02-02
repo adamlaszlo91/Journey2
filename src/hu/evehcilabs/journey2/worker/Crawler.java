@@ -26,6 +26,9 @@ package hu.evehcilabs.journey2.worker;
 import com.sun.istack.internal.NotNull;
 import com.sun.istack.internal.Nullable;
 import java.io.IOException;
+import java.net.URL;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.regex.Matcher;
@@ -33,6 +36,8 @@ import java.util.regex.Pattern;
 import org.apache.commons.validator.EmailValidator;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 
 /**
  *
@@ -47,17 +52,9 @@ public class Crawler implements Runnable {
     private static final HashMap<String, String> REPLACE_MAP = new HashMap<String, String>() {
         {
             put("[at]", "@");
-            put(" at ", "@");
-            put("at", "@");
             put("[kukac]", "@");
-            put(" kukac ", "@");
-            put("kukac", "@");
             put("[dot]", ".");
-            put(" dot ", ".");
-            put("dot", ".");
             put("[pont]", ".");
-            put(" pont ", ".");
-            put("pont", ".");
         }
     };
 
@@ -91,15 +88,38 @@ public class Crawler implements Runnable {
         while (this.thread == thisThread) {
             String link;
             if (interactionInterface != null && (link = interactionInterface.getNextLink()) != null) {
+                ArrayList<String> links = new ArrayList<>();
+
                 try {
                     // Get document
                     Document document = Jsoup.connect(link).get();
+                    URL url = new URL(link);
+
+                    // Search for links
+                    Elements documentLinks = document.select("a[href]");
+                    for (Element documentLink : documentLinks) {
+                        String l = documentLink.attr("href");
+                        if (l.contains("javascript") || l.contains("mailto:")
+                                || url.getHost().equals("")) {
+                            continue;
+                        }
+
+                        if (!l.startsWith("http")) {
+                            links
+                                    .add(url.getProtocol() + "://" + url.getHost() + l);
+                        } else {
+                            links.add(l);
+                        }
+                    }
+
                     // Search for emails
                     ArrayList<String> emails = new ArrayList<>();
                     String page = document.toString();
                     for (String key : REPLACE_MAP.keySet()) {
                         page = page.replace(key, REPLACE_MAP.get(key));
                     }
+                    page = page.replaceAll("%(?![0-9a-fA-F]{2})", "%25");
+                    page = URLDecoder.decode(page, "UTF-8");
 
                     Matcher matcher = EMAIL_PATTERN.matcher(page);
                     while (matcher.find()) {
@@ -112,10 +132,13 @@ public class Crawler implements Runnable {
                         interactionInterface.saveEmails(link, emails);
                     }
 
-                } catch (IOException e) {
+                } catch (Exception e) {
                     e.printStackTrace();
                 } finally {
-                    // TODO: Collect links
+                    // Sending empty list too to make the faulty pages marked as visited
+                    if (interactionInterface != null) {
+                        interactionInterface.saveLinks(link, links);
+                    }
                 }
             } else {
                 try {
@@ -136,6 +159,7 @@ public class Crawler implements Runnable {
          */
         public @Nullable
         String getNextLink();
+        
 
         /**
          * Called with the found links on the current page
@@ -148,9 +172,10 @@ public class Crawler implements Runnable {
         /**
          * Called with the found emails on the current page
          *
+         * @param link The link on which the emails have been found
          * @param emails Emails
          */
-        public void saveEmails(@NotNull String url, @NotNull ArrayList<String> emails);
+        public void saveEmails(@NotNull String link, @NotNull ArrayList<String> emails);
     }
 
 }

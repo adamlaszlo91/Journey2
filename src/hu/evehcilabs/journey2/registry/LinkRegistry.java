@@ -23,10 +23,49 @@
  */
 package hu.evehcilabs.journey2.registry;
 
+import com.sun.istack.internal.NotNull;
+import com.sun.istack.internal.Nullable;
+import hu.evehcilabs.journey2.connection.Database;
+import java.util.ArrayList;
+
 /**
  *
  * @author AdamLaszlo
  */
 public class LinkRegistry {
-    
+
+    private final Database database;
+
+    public LinkRegistry(Database database) {
+        this.database = database;
+    }
+
+    /**
+     * Returns an unvisited link
+     *
+     * @return The link
+     */
+    public @Nullable
+    String getUnvisitedLink() {
+        return database.getRandomUnvisitedLink();
+    }
+
+    /**
+     * Marks a link as visited
+     *
+     * @param link the link
+     */
+    public void setLinkVisited(@NotNull String link) {
+        database.setLinkVisited(link);
+    }
+
+    /**
+     * Saves newly added links
+     *
+     * @param links
+     */
+    public void saveNewLinks(ArrayList<String> links) {
+        database.saveNewLinks(links);
+    }
+
 }

@@ -24,6 +24,7 @@
 package hu.evehcilabs.journey2.connection;
 
 import com.sun.istack.internal.NotNull;
+import com.sun.istack.internal.Nullable;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -66,8 +67,8 @@ public class Database {
      */
     private void initTables() throws SQLException {
         if (version >= 1) {
-            connection.createStatement().executeUpdate("CREATE TABLE IF NOT EXISTS email (title TEXT PRIMARY KEY, url TEXT, timestamp INTEGER)");
-            connection.createStatement().executeUpdate("CREATE TABLE IF NOT EXISTS url (title TEXT PRIMARY KEY, timestamp INTEGER)");
+            connection.createStatement().executeUpdate("CREATE TABLE IF NOT EXISTS email (title TEXT PRIMARY KEY, link TEXT, timestamp INTEGER)");
+            connection.createStatement().executeUpdate("CREATE TABLE IF NOT EXISTS link (title TEXT PRIMARY KEY, timestamp INTEGER)");
         }
     }
 
@@ -106,10 +107,11 @@ public class Database {
     /**
      * Saves email adresses to the database
      *
+     * @param link The link on which the emails have been found
      * @param emails Emails
      * @return Number of inserted
      */
-    public synchronized int saveEmails(@NotNull String url, @NotNull ArrayList<String> emails) {
+    public synchronized int saveEmails(@NotNull String link, @NotNull ArrayList<String> emails) {
         if (emails.isEmpty()) {
             return 0;
         }
@@ -126,9 +128,9 @@ public class Database {
         try {
             PreparedStatement statement = connection.prepareStatement(builder.toString());
             for (int i = 0; i < emails.size(); i++) {
-                statement.setString(i*3 + 1, emails.get(i));
-                statement.setString(i*3 + 2, url);
-                statement.setLong(i*3 + 3, System.currentTimeMillis());
+                statement.setString(i * 3 + 1, emails.get(i));
+                statement.setString(i * 3 + 2, link);
+                statement.setLong(i * 3 + 3, System.currentTimeMillis());
             }
             return statement.executeUpdate();
         } catch (SQLException ex) {
@@ -136,4 +138,89 @@ public class Database {
             return 0;
         }
     }
+
+    /**
+     * Saves newly found links to the database
+     *
+     * @param links links
+     */
+    public synchronized void saveNewLinks(@NotNull ArrayList<String> links) {
+        if (links.isEmpty()) {
+            return;
+        }
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("INSERT OR IGNORE INTO link VALUES");
+        for (int i = 0; i < links.size(); i++) {
+            builder.append("(?,?)");
+            if (i != links.size() - 1) {
+                builder.append(",");
+            }
+        }
+
+        try {
+            PreparedStatement statement = connection.prepareStatement(builder.toString());
+            for (int i = 0; i < links.size(); i++) {
+                statement.setString(i * 2 + 1, links.get(i));
+                statement.setLong(i * 2 + 2, 0);
+            }
+            statement.executeUpdate();
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    /**
+     * Gives a random non-visited ink
+     *
+     * @return An unvisited link or null, if not found such
+     */
+    public synchronized @Nullable
+    String getRandomUnvisitedLink() {
+        String sql = "SELECT title FROM link WHERE timestamp = 0 ORDER BY random() LIMIT 1";
+
+        ResultSet rs = null;
+        try {
+            Statement statement = connection.createStatement();
+            rs = statement.executeQuery(sql);
+            if (rs.next()) {
+                return rs.getString(1);
+            } else {
+                return null;
+            }
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+            return null;
+        } finally {
+            if (rs != null) {
+                try {
+                    rs.close();
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }
+    }
+
+    /**
+     * Sets the timestamp for the given link, hence marking it as visited
+     *
+     * @param link The link
+     */
+    public synchronized void setLinkVisited(@NotNull String link) {
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("UPDATE link SET timestamp = ? WHERE title = ?");
+
+        try {
+            PreparedStatement statement = connection.prepareStatement(builder.toString());
+            statement.setLong(1, System.currentTimeMillis());
+            statement.setString(2, link);
+
+            statement.executeUpdate();
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        }
+    }
+
 }

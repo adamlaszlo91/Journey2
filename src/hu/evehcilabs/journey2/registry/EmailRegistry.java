@@ -48,13 +48,13 @@ public class EmailRegistry {
     /**
      * Saves email addresses to the database
      *
-     * @param url The url on which the emails have been found
+     * @param link The link on which the emails have been found
      * @param emails The email addresses
      */
-    public void saveEmails(@NotNull String url, @NotNull ArrayList<String> emails) {
-        savedEmailCounter += database.saveEmails(url, emails);
+    public void saveEmails(@NotNull String link, @NotNull ArrayList<String> emails) {
+        savedEmailCounter += database.saveEmails(link, emails);
 
         System.out.println("Email count: " + String.valueOf(savedEmailCounter));
-        System.out.println("Recently found: \n" + String.join("\n\t", emails));
+        System.out.println("Recently found: \n\t" + String.join("\n\t", emails));
     }
 }

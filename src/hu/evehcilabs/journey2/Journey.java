@@ -24,6 +24,7 @@
 package hu.evehcilabs.journey2;
 
 import com.sun.istack.internal.NotNull;
+import com.sun.istack.internal.Nullable;
 import hu.evehcilabs.journey2.connection.Database;
 import hu.evehcilabs.journey2.registry.EmailRegistry;
 import hu.evehcilabs.journey2.registry.LinkRegistry;
@@ -47,12 +48,12 @@ public class Journey implements Crawler.InteractionInterface {
      */
     public static void main(String[] args) {
         // TODO: Make parameter
-        String startUrl = "http://startlap.hu";
+        String startLink = "https://www.startlap.hu/";
         // TODO: Make parameter
-        int crawlerNum = 10;
+        int crawlerNum = 16;
 
         Journey journey = new Journey();
-        journey.start(startUrl, crawlerNum);
+        journey.start(startLink, crawlerNum);
     }
 
     public Journey() {
@@ -60,16 +61,22 @@ public class Journey implements Crawler.InteractionInterface {
         database.connect();
 
         emailRegistry = new EmailRegistry(database);
-        linkRegistry = new LinkRegistry();
+        linkRegistry = new LinkRegistry(database);
     }
 
     /**
      * Starts the crawling process
      *
-     * @param url The first url
+     * @param link The first link
      * @param crawlerNum Number of crawlers working parallel
      */
-    private void start(@NotNull String url, int crawlerNum) {
+    private void start(@NotNull String link, int crawlerNum) {
+        ArrayList<String> starterLinks = new ArrayList<String>() {
+            {
+                add(link);
+            }
+        };
+        linkRegistry.saveNewLinks(starterLinks);
 
         crawlers = new ArrayList<>();
         Crawler crawler;
@@ -91,21 +98,19 @@ public class Journey implements Crawler.InteractionInterface {
     boolean was = false;
 
     @Override
-    public String getNextLink() {
-        if (!was) {
-            was = true;
-            return "http://startlap.hu";
-        }
-        return null;
+    public @Nullable
+    String getNextLink() {
+        return linkRegistry.getUnvisitedLink();
     }
 
     @Override
     public void saveLinks(String link, ArrayList<String> links) {
-
+        linkRegistry.setLinkVisited(link);
+        linkRegistry.saveNewLinks(links);
     }
 
     @Override
-    public void saveEmails(String url, ArrayList<String> emails) {
-        emailRegistry.saveEmails(url, emails);
+    public void saveEmails(String Link, ArrayList<String> emails) {
+        emailRegistry.saveEmails(Link, emails);
     }
 }
